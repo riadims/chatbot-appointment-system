@@ -51,11 +51,12 @@ export async function bookAppointment(req, res) {
     // Forward to n8n
     const n8nResponse = await sendBookingToN8n(bookingData);
 
-    // Return success response
+    // Return success response with n8n result
     res.status(200).json({
       success: true,
       message: 'Appointment booking request processed successfully',
       data: bookingData,
+      n8nResult: n8nResponse,
     });
   } catch (error) {
     // Log error for debugging (in production, use proper logging)
@@ -96,13 +97,14 @@ export async function cancelAppointment(req, res) {
     };
 
     // Forward to n8n
-    await sendCancellationToN8n(cancellationData);
+    const n8nResponse = await sendCancellationToN8n(cancellationData);
 
-    // Return success response
+    // Return success response with n8n result
     res.status(200).json({
       success: true,
       message: 'Appointment cancellation request processed successfully',
       data: cancellationData,
+      n8nResult: n8nResponse,
     });
   } catch (error) {
     // Log error for debugging (in production, use proper logging)
