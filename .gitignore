@@ -12,3 +12,6 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Project Context
+ProjectContext.md

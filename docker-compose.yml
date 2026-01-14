@@ -1,0 +1,15 @@
+services:
+  backend:
+    build: ./backend
+    container_name: chatbot-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped
+    networks:
+      - chatbot-network
+
+networks:
+  chatbot-network:
+    driver: bridge
