@@ -4,16 +4,14 @@
     {
       "parameters": {
         "path": "book",
+        "httpMethod": "POST",
         "options": {}
       },
       "id": "webhook-book",
       "name": "Webhook - Book Appointment",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [
-        240,
-        300
-      ],
+      "typeVersion": 1.1,
+      "position": [240, 300],
       "webhookId": "book-appointment",
       "description": "Receives appointment booking requests from backend API"
     },
@@ -25,10 +23,7 @@
       "name": "Validate Booking Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        460,
-        300
-      ],
+      "position": [460, 300],
       "description": "Validates incoming booking data (name, email, date, time, reason)"
     },
     {
@@ -39,10 +34,7 @@
       "name": "Log Booking Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        680,
-        300
-      ],
+      "position": [680, 300],
       "description": "Logs booking request with timestamp and request ID for debugging"
     },
     {
@@ -60,25 +52,59 @@
       "name": "Check Validation",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        900,
-        300
-      ],
+      "position": [900, 300],
       "description": "Routes workflow based on validation result"
     },
     {
       "parameters": {
-        "jsCode": "// Placeholder for Google Calendar integration\n// TODO: Replace with actual Google Calendar API call\nconst bookingData = $input.item.json.data;\n\n// Simulate Google Calendar event creation\nconst calendarEvent = {\n  summary: `Appointment: ${bookingData.reason}`,\n  description: `Appointment with ${bookingData.name} (${bookingData.email})`,\n  start: {\n    dateTime: `${bookingData.date}T${bookingData.time}:00`,\n    timeZone: 'UTC'\n  },\n  end: {\n    dateTime: `${bookingData.date}T${bookingData.time}:00`,\n    timeZone: 'UTC'\n  },\n  attendees: [\n    { email: bookingData.email }\n  ]\n};\n\nconsole.log('Google Calendar Event (Stub):', JSON.stringify(calendarEvent, null, 2));\n\nreturn {\n  json: {\n    success: true,\n    message: 'Appointment booking processed successfully',\n    calendarEvent: calendarEvent,\n    bookingData: bookingData,\n    requestId: $input.item.json.requestId\n  }\n};"
+        "jsCode": "// Prepare Google Calendar event data\nconst bookingData = $input.item.json.data;\nconst requestId = $input.item.json.requestId;\n\n// Calculate start and end times (1-hour default duration)\nconst startDateTime = new Date(`${bookingData.date}T${bookingData.time}:00`);\nconst endDateTime = new Date(startDateTime.getTime() + 60 * 60 * 1000); // Add 1 hour\n\n// Format dates for Google Calendar API (RFC3339 format)\nconst formatDateTime = (date) => {\n  return date.toISOString().replace(/\\.\\d{3}/, '');\n};\n\n// Don't set calendarId - let the backend use GOOGLE_CALENDAR_ID from its environment\n// This centralizes calendar ID configuration in the backend .env file\n// No need to set it here since backend will use its env var if calendarId is not provided\n\n// Prepare event data\n// Note: Service accounts cannot invite attendees, so email is included in description only\nconst eventData = {\n  summary: `Appointment: ${bookingData.name}`,\n  description: `Reason: ${bookingData.reason} | Email: ${bookingData.email}`,\n  start: {\n    dateTime: formatDateTime(startDateTime),\n    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'\n  },\n  end: {\n    dateTime: formatDateTime(endDateTime),\n    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'\n  }\n};\n\n// Log event preparation\nconsole.log('Preparing Google Calendar Event:', JSON.stringify({\n  timestamp: new Date().toISOString(),\n  requestId: requestId,\n  note: 'Calendar ID will be determined by backend from GOOGLE_CALENDAR_ID env var',\n  eventData: eventData\n}, null, 2));\n\nreturn {\n  json: {\n    ...$input.item.json,\n    eventData: eventData\n    // Note: calendarId not included - backend will use GOOGLE_CALENDAR_ID from its .env\n  }\n};"
       },
-      "id": "google-calendar-stub",
-      "name": "Google Calendar Stub",
+      "id": "prepare-calendar-event",
+      "name": "Prepare Calendar Event",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1120,
-        200
-      ],
-      "description": "Placeholder for Google Calendar integration - to be replaced with actual API call"
+      "position": [1120, 200],
+      "description": "Prepares Google Calendar event data with proper date/time formatting"
+    },
+    {
+      "parameters": {
+        "url": "http://chatbot-backend:3000/api/google-calendar/create",
+        "authentication": "none",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { eventData: $json.eventData } }}",
+        "options": {}
+      },
+      "id": "google-calendar-create",
+      "name": "Google Calendar - Create Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 200],
+      "description": "Creates event in Google Calendar via backend API (which handles JWT authentication)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse backend response and format for next node\nconst response = $input.item.json;\n\n// Try to find booking data from the input chain (from before HTTP request)\n// HTTP Request nodes in n8n preserve previous input items in $input.all()\nlet bookingData = null;\nlet requestId = null;\n\n// Check all input items to find the one with booking data\n// The HTTP response will be the first item, so we need to check all items\nfor (let i = 0; i < $input.all().length; i++) {\n  const item = $input.all()[i];\n  \n  // Skip the HTTP response itself (usually first item)\n  if (item.json.success !== undefined && item.json.event) {\n    continue;\n  }\n  \n  // Look for booking data in various possible locations\n  if (item.json && item.json.data && item.json.data.name) {\n    bookingData = item.json.data;\n    requestId = item.json.requestId || $execution.id;\n    break;\n  }\n  \n  // Also check if bookingData is directly on the item\n  if (item.json && item.json.bookingData) {\n    bookingData = item.json.bookingData;\n    requestId = item.json.requestId || $execution.id;\n    break;\n  }\n}\n\nif (!response.success || !response.event) {\n  throw new Error(response.error || 'Failed to create calendar event');\n}\n\nconst event = response.event;\n\n// If we still don't have booking data, try to extract from event summary/description\nif (!bookingData && event.summary && event.description) {\n  const summaryMatch = event.summary.match(/Appointment: (.+)/);\n  const emailMatch = event.description.match(/Email: ([^|\\s]+)/);\n  const reasonMatch = event.description.match(/Reason: ([^|]+)/);\n  \n  bookingData = {\n    name: summaryMatch ? summaryMatch[1] : 'Unknown',\n    email: emailMatch ? emailMatch[1].trim() : 'unknown@example.com',\n    date: event.start ? event.start.dateTime?.split('T')[0] : 'unknown',\n    time: event.start ? event.start.dateTime?.split('T')[1]?.substring(0, 5) : 'unknown',\n    reason: reasonMatch ? reasonMatch[1].trim() : 'N/A'\n  };\n}\n\nconsole.log('Google Calendar Event Created Successfully:', JSON.stringify({\n  timestamp: new Date().toISOString(),\n  requestId: requestId || $execution.id,\n  eventId: event.id,\n  eventLink: event.htmlLink,\n  hasBookingData: !!bookingData\n}, null, 2));\n\n// Return formatted response with booking data and request ID for next nodes\nreturn {\n  json: {\n    id: event.id,\n    htmlLink: event.htmlLink,\n    summary: event.summary,\n    start: event.start,\n    end: event.end,\n    bookingData: bookingData,\n    requestId: requestId || $execution.id\n  }\n};"
+      },
+      "id": "parse-calendar-response",
+      "name": "Parse Calendar Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 200],
+      "description": "Parses backend response and formats for next node"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log successful calendar event creation and format response\nconst calendarResponse = $input.item.json;\n\n// Try to get booking data from calendar response first\nlet bookingData = calendarResponse.bookingData;\nlet requestId = calendarResponse.requestId;\n\n// If not found, try to find it in the input chain\nif (!bookingData) {\n  // Search through all input items to find booking data\n  for (const item of $input.all()) {\n    if (item.json && item.json.data && item.json.data.name) {\n      bookingData = item.json.data;\n      requestId = item.json.requestId || requestId || $execution.id;\n      break;\n    }\n  }\n}\n\n// If still not found, create a minimal booking data object to prevent errors\nif (!bookingData) {\n  console.warn('Booking data not found in calendar response or input chain - using event summary as fallback');\n  bookingData = {\n    name: calendarResponse.summary ? calendarResponse.summary.replace('Appointment: ', '') : 'Unknown',\n    email: 'unknown@example.com',\n    date: calendarResponse.start ? calendarResponse.start.dateTime?.split('T')[0] : 'unknown',\n    time: calendarResponse.start ? calendarResponse.start.dateTime?.split('T')[1]?.substring(0, 5) : 'unknown',\n    reason: 'N/A'\n  };\n}\n\nconst eventId = calendarResponse.id;\nconst eventLink = calendarResponse.htmlLink;\n\n// Log success\nconst logEntry = {\n  timestamp: new Date().toISOString(),\n  requestId: requestId || $execution.id,\n  type: 'calendar_event_created',\n  success: true,\n  eventId: eventId,\n  eventLink: eventLink,\n  bookingData: {\n    name: bookingData.name || 'Unknown',\n    email: bookingData.email || 'unknown@example.com',\n    date: bookingData.date || 'unknown',\n    time: bookingData.time || 'unknown',\n    reason: bookingData.reason || 'N/A'\n  }\n};\n\nconsole.log('Google Calendar Event Created Successfully:', JSON.stringify(logEntry, null, 2));\n\n// Return formatted response\nreturn {\n  json: {\n    success: true,\n    message: 'Appointment booking processed successfully',\n    eventId: eventId,\n    eventLink: eventLink,\n    bookingData: bookingData,\n    requestId: requestId || $execution.id\n  }\n};"
+      },
+      "id": "log-calendar-success",
+      "name": "Log Calendar Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 200],
+      "description": "Logs successful calendar event creation with event ID and details"
     },
     {
       "parameters": {
@@ -90,10 +116,7 @@
       "name": "Respond - Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        1340,
-        200
-      ],
+      "position": [2000, 200],
       "description": "Sends success response back to backend API"
     },
     {
@@ -108,75 +131,37 @@
       "name": "Respond - Validation Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        1120,
-        400
-      ],
+      "position": [1120, 400],
       "description": "Sends validation error response back to backend API"
     }
   ],
   "connections": {
     "Webhook - Book Appointment": {
-      "main": [
-        [
-          {
-            "node": "Validate Booking Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Validate Booking Data", "type": "main", "index": 0 }]]
     },
     "Validate Booking Data": {
-      "main": [
-        [
-          {
-            "node": "Log Booking Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Log Booking Request", "type": "main", "index": 0 }]]
     },
     "Log Booking Request": {
-      "main": [
-        [
-          {
-            "node": "Check Validation",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Check Validation", "type": "main", "index": 0 }]]
     },
     "Check Validation": {
       "main": [
-        [
-          {
-            "node": "Google Calendar Stub",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Respond - Validation Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Prepare Calendar Event", "type": "main", "index": 0 }],
+        [{ "node": "Respond - Validation Error", "type": "main", "index": 0 }]
       ]
     },
-    "Google Calendar Stub": {
-      "main": [
-        [
-          {
-            "node": "Respond - Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+    "Prepare Calendar Event": {
+      "main": [[{ "node": "Google Calendar - Create Event", "type": "main", "index": 0 }]]
+    },
+    "Google Calendar - Create Event": {
+      "main": [[{ "node": "Parse Calendar Response", "type": "main", "index": 0 }]]
+    },
+    "Parse Calendar Response": {
+      "main": [[{ "node": "Log Calendar Success", "type": "main", "index": 0 }]]
+    },
+    "Log Calendar Success": {
+      "main": [[{ "node": "Respond - Success", "type": "main", "index": 0 }]]
     }
   },
   "pinData": {},
@@ -184,14 +169,7 @@
     "executionOrder": "v1"
   },
   "staticData": null,
-  "tags": [
-    {
-      "createdAt": "2026-01-14T20:00:00.000Z",
-      "updatedAt": "2026-01-14T20:00:00.000Z",
-      "id": "appointment-booking",
-      "name": "appointment-booking"
-    }
-  ],
+  "tags": [],
   "triggerCount": 0,
   "updatedAt": "2026-01-14T20:00:00.000Z",
   "versionId": "1"
