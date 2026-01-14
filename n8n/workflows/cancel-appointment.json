@@ -1,0 +1,198 @@
+{
+  "name": "Cancel Appointment",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "cancel",
+        "options": {}
+      },
+      "id": "webhook-cancel",
+      "name": "Webhook - Cancel Appointment",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "cancel-appointment",
+      "description": "Receives appointment cancellation requests from backend API"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate incoming cancellation data\nconst data = $input.item.json.body;\nconst errors = [];\n\n// Required fields validation\nif (!data.email || typeof data.email !== 'string') {\n  errors.push('Email is required');\n} else {\n  // Basic email validation\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(data.email)) {\n    errors.push('Email must be in valid format');\n  }\n}\n\nif (!data.date || typeof data.date !== 'string') {\n  errors.push('Date is required');\n} else {\n  // Date format validation (YYYY-MM-DD)\n  const dateRegex = /^\\d{4}-\\d{2}-\\d{2}$/;\n  if (!dateRegex.test(data.date)) {\n    errors.push('Date must be in YYYY-MM-DD format');\n  }\n}\n\nif (!data.time || typeof data.time !== 'string') {\n  errors.push('Time is required');\n} else {\n  // Time format validation (HH:MM)\n  const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;\n  if (!timeRegex.test(data.time)) {\n    errors.push('Time must be in HH:MM format (24-hour)');\n  }\n}\n\n// Return validation result\nif (errors.length > 0) {\n  return {\n    json: {\n      valid: false,\n      errors: errors,\n      originalData: data\n    }\n  };\n}\n\n// Normalize data\nreturn {\n  json: {\n    valid: true,\n    data: {\n      email: data.email.toLowerCase().trim(),\n      date: data.date,\n      time: data.time\n    },\n    requestId: $execution.id,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "validate-cancellation",
+      "name": "Validate Cancellation Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "description": "Validates incoming cancellation data (email, date, time)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log cancellation request for debugging\nconst item = $input.item.json;\nconst logEntry = {\n  timestamp: new Date().toISOString(),\n  requestId: item.requestId || $execution.id,\n  type: 'cancellation_request',\n  valid: item.valid,\n  data: item.data || item.originalData,\n  errors: item.errors || null\n};\n\n// Log to console (visible in n8n execution logs)\nconsole.log('Cancellation Request Log:', JSON.stringify(logEntry, null, 2));\n\n// Return data for next node\nreturn item;"
+      },
+      "id": "log-cancellation",
+      "name": "Log Cancellation Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        300
+      ],
+      "description": "Logs cancellation request with timestamp and request ID for debugging"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.valid }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-validation",
+      "name": "Check Validation",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        900,
+        300
+      ],
+      "description": "Routes workflow based on validation result"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Placeholder for Google Calendar integration\n// TODO: Replace with actual Google Calendar API call\nconst cancellationData = $input.item.json.data;\n\n// Simulate Google Calendar event deletion\nconst calendarEventId = `event_${cancellationData.email}_${cancellationData.date}_${cancellationData.time.replace(':', '')}`;\n\nconsole.log('Google Calendar Event Deletion (Stub):', {\n  eventId: calendarEventId,\n  email: cancellationData.email,\n  date: cancellationData.date,\n  time: cancellationData.time\n});\n\nreturn {\n  json: {\n    success: true,\n    message: 'Appointment cancellation processed successfully',\n    cancelledEvent: {\n      eventId: calendarEventId,\n      email: cancellationData.email,\n      date: cancellationData.date,\n      time: cancellationData.time\n    },\n    requestId: $input.item.json.requestId\n  }\n};"
+      },
+      "id": "google-calendar-stub",
+      "name": "Google Calendar Stub",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        200
+      ],
+      "description": "Placeholder for Google Calendar integration - to be replaced with actual API call"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond - Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        200
+      ],
+      "description": "Sends success response back to backend API"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"success\": false, \"error\": \"Validation Error\", \"details\": $json.errors, \"message\": \"Invalid cancellation data provided\" } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-error",
+      "name": "Respond - Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        400
+      ],
+      "description": "Sends validation error response back to backend API"
+    }
+  ],
+  "connections": {
+    "Webhook - Cancel Appointment": {
+      "main": [
+        [
+          {
+            "node": "Validate Cancellation Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Cancellation Data": {
+      "main": [
+        [
+          {
+            "node": "Log Cancellation Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Cancellation Request": {
+      "main": [
+        [
+          {
+            "node": "Check Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Validation": {
+      "main": [
+        [
+          {
+            "node": "Google Calendar Stub",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond - Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Calendar Stub": {
+      "main": [
+        [
+          {
+            "node": "Respond - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "createdAt": "2026-01-14T20:00:00.000Z",
+      "updatedAt": "2026-01-14T20:00:00.000Z",
+      "id": "appointment-cancellation",
+      "name": "appointment-cancellation"
+    }
+  ],
+  "triggerCount": 0,
+  "updatedAt": "2026-01-14T20:00:00.000Z",
+  "versionId": "1"
+}
