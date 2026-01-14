@@ -1,0 +1,14 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment variables
+.env
+
+# Docker
+*.log
+data/
+
+# OS
+.DS_Store
+Thumbs.db
