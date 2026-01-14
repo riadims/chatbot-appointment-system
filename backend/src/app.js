@@ -1,5 +1,6 @@
 import express from 'express';
 import appointmentsRouter from './routes/appointments.js';
+import googleCalendarRouter from './routes/googleCalendar.js';
 import { healthCheck } from './controllers/appointmentController.js';
 
 /**
@@ -25,6 +26,9 @@ app.get('/health', healthCheck);
 
 // Appointment routes
 app.use('/appointments', appointmentsRouter);
+
+// Google Calendar routes (for n8n to call)
+app.use('/api/google-calendar', googleCalendarRouter);
 
 // 404 handler
 app.use((req, res) => {

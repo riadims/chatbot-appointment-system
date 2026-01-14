@@ -6,10 +6,12 @@ services:
       - "3000:3000"
     env_file:
       - ./backend/.env
+      - ./n8n/.env
     restart: unless-stopped
     networks:
       - chatbot-network
 
 networks:
   chatbot-network:
-    driver: bridge
+    external: true
+  

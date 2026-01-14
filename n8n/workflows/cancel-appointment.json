@@ -4,45 +4,37 @@
     {
       "parameters": {
         "path": "cancel",
+        "httpMethod": "POST",
         "options": {}
       },
       "id": "webhook-cancel",
       "name": "Webhook - Cancel Appointment",
       "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [
-        240,
-        300
-      ],
+      "typeVersion": 1.1,
+      "position": [240, 300],
       "webhookId": "cancel-appointment",
       "description": "Receives appointment cancellation requests from backend API"
     },
     {
       "parameters": {
-        "jsCode": "// Validate incoming cancellation data\nconst data = $input.item.json.body;\nconst errors = [];\n\n// Required fields validation\nif (!data.email || typeof data.email !== 'string') {\n  errors.push('Email is required');\n} else {\n  // Basic email validation\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(data.email)) {\n    errors.push('Email must be in valid format');\n  }\n}\n\nif (!data.date || typeof data.date !== 'string') {\n  errors.push('Date is required');\n} else {\n  // Date format validation (YYYY-MM-DD)\n  const dateRegex = /^\\d{4}-\\d{2}-\\d{2}$/;\n  if (!dateRegex.test(data.date)) {\n    errors.push('Date must be in YYYY-MM-DD format');\n  }\n}\n\nif (!data.time || typeof data.time !== 'string') {\n  errors.push('Time is required');\n} else {\n  // Time format validation (HH:MM)\n  const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;\n  if (!timeRegex.test(data.time)) {\n    errors.push('Time must be in HH:MM format (24-hour)');\n  }\n}\n\n// Return validation result\nif (errors.length > 0) {\n  return {\n    json: {\n      valid: false,\n      errors: errors,\n      originalData: data\n    }\n  };\n}\n\n// Normalize data\nreturn {\n  json: {\n    valid: true,\n    data: {\n      email: data.email.toLowerCase().trim(),\n      date: data.date,\n      time: data.time\n    },\n    requestId: $execution.id,\n    timestamp: new Date().toISOString()\n  }\n};"
+        "jsCode": "// Validate incoming cancellation data\nconst data = $input.item.json.body;\nconst errors = [];\n\nif (!data.email || typeof data.email !== 'string') {\n  errors.push('Email is required');\n} else {\n  // Basic email validation\n  const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;\n  if (!emailRegex.test(data.email)) {\n    errors.push('Email must be in valid format');\n  }\n}\n\nif (!data.date || typeof data.date !== 'string') {\n  errors.push('Date is required');\n} else {\n  // Date format validation (YYYY-MM-DD)\n  const dateRegex = /^\\d{4}-\\d{2}-\\d{2}$/;\n  if (!dateRegex.test(data.date)) {\n    errors.push('Date must be in YYYY-MM-DD format');\n  }\n}\n\nif (!data.time || typeof data.time !== 'string') {\n  errors.push('Time is required');\n} else {\n  // Time format validation (HH:MM)\n  const timeRegex = /^([0-1][0-9]|2[0-3]):[0-5][0-9]$/;\n  if (!timeRegex.test(data.time)) {\n    errors.push('Time must be in HH:MM format (24-hour)');\n  }\n}\n\n// Return validation result\nif (errors.length > 0) {\n  return {\n    json: {\n      valid: false,\n      errors: errors,\n      originalData: data\n    }\n  };\n}\n\n// Normalize data\nreturn {\n  json: {\n    valid: true,\n    data: {\n      email: data.email.toLowerCase().trim(),\n      date: data.date,\n      time: data.time\n    },\n    requestId: $execution.id,\n    timestamp: new Date().toISOString()\n  }\n};"
       },
       "id": "validate-cancellation",
       "name": "Validate Cancellation Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        460,
-        300
-      ],
+      "position": [460, 300],
       "description": "Validates incoming cancellation data (email, date, time)"
     },
     {
       "parameters": {
-        "jsCode": "// Log cancellation request for debugging\nconst item = $input.item.json;\nconst logEntry = {\n  timestamp: new Date().toISOString(),\n  requestId: item.requestId || $execution.id,\n  type: 'cancellation_request',\n  valid: item.valid,\n  data: item.data || item.originalData,\n  errors: item.errors || null\n};\n\n// Log to console (visible in n8n execution logs)\nconsole.log('Cancellation Request Log:', JSON.stringify(logEntry, null, 2));\n\n// Return data for next node\nreturn item;"
+        "jsCode": "// Log cancellation request for debugging\nconst item = $input.item.json;\nconst logEntry = {\n  timestamp: new Date().toISOString(),\n  requestId: item.requestId || $execution.id,\n  type: 'cancellation_request',\n  valid: item.valid,\n  data: item.data || item.originalData,\n  errors: item.errors || null\n};\n\nconsole.log('Cancellation Request Log:', JSON.stringify(logEntry, null, 2));\n\nreturn item;"
       },
       "id": "log-cancellation",
       "name": "Log Cancellation Request",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        680,
-        300
-      ],
+      "position": [680, 300],
       "description": "Logs cancellation request with timestamp and request ID for debugging"
     },
     {
@@ -60,25 +52,102 @@
       "name": "Check Validation",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [
-        900,
-        300
-      ],
+      "position": [900, 300],
       "description": "Routes workflow based on validation result"
     },
     {
       "parameters": {
-        "jsCode": "// Placeholder for Google Calendar integration\n// TODO: Replace with actual Google Calendar API call\nconst cancellationData = $input.item.json.data;\n\n// Simulate Google Calendar event deletion\nconst calendarEventId = `event_${cancellationData.email}_${cancellationData.date}_${cancellationData.time.replace(':', '')}`;\n\nconsole.log('Google Calendar Event Deletion (Stub):', {\n  eventId: calendarEventId,\n  email: cancellationData.email,\n  date: cancellationData.date,\n  time: cancellationData.time\n});\n\nreturn {\n  json: {\n    success: true,\n    message: 'Appointment cancellation processed successfully',\n    cancelledEvent: {\n      eventId: calendarEventId,\n      email: cancellationData.email,\n      date: cancellationData.date,\n      time: cancellationData.time\n    },\n    requestId: $input.item.json.requestId\n  }\n};"
+        "jsCode": "// Prepare search parameters for Google Calendar\nconst cancellationData = $input.item.json.data;\nconst requestId = $input.item.json.requestId;\n\n// Calculate time window for searching (30 minutes before and after)\nconst appointmentTime = new Date(`${cancellationData.date}T${cancellationData.time}:00`);\nconst timeMin = new Date(appointmentTime.getTime() - 30 * 60 * 1000); // 30 min before\nconst timeMax = new Date(appointmentTime.getTime() + 30 * 60 * 1000); // 30 min after\n\n// Format dates for Google Calendar API (RFC3339 format)\nconst formatDateTime = (date) => {\n  return date.toISOString().replace(/\\.\\d{3}/, '');\n};\n\n// Get calendar ID from environment variable\nlet calendarId = 'primary';\ntry {\n  if (typeof process !== 'undefined' && process.env && process.env.GOOGLE_CALENDAR_ID) {\n    calendarId = process.env.GOOGLE_CALENDAR_ID;\n  }\n} catch (e) {\n  calendarId = 'primary';\n}\n\nconst searchData = {\n  calendarId: calendarId,\n  timeMin: formatDateTime(timeMin),\n  timeMax: formatDateTime(timeMax)\n};\n\nconsole.log('Preparing Calendar Search:', JSON.stringify({\n  timestamp: new Date().toISOString(),\n  requestId: requestId,\n  searchData: searchData,\n  cancellationData: cancellationData\n}, null, 2));\n\nreturn {\n  json: {\n    ...$input.item.json,\n    searchData: searchData,\n    cancellationData: cancellationData\n  }\n};"
       },
-      "id": "google-calendar-stub",
-      "name": "Google Calendar Stub",
+      "id": "prepare-event-search",
+      "name": "Prepare Event Search",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [
-        1120,
-        200
-      ],
-      "description": "Placeholder for Google Calendar integration - to be replaced with actual API call"
+      "position": [1120, 200],
+      "description": "Prepares search parameters to find the calendar event to cancel"
+    },
+    {
+      "parameters": {
+        "url": "http://chatbot-backend:3000/api/google-calendar/search",
+        "authentication": "none",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { calendarId: $json.searchData.calendarId, timeMin: $json.searchData.timeMin, timeMax: $json.searchData.timeMax } }}",
+        "options": {}
+      },
+      "id": "google-calendar-search",
+      "name": "Google Calendar - Search Events",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 200],
+      "description": "Searches for calendar events via backend API (which handles JWT authentication)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse search response and return events\nconst response = $input.item.json;\n\nif (!response.success || !Array.isArray(response.events)) {\n  throw new Error(response.error || 'Failed to search calendar events');\n}\n\n// Return events as separate items for filtering\nreturn response.events.map(event => ({ json: event }));"
+      },
+      "id": "parse-search-response",
+      "name": "Parse Search Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 200],
+      "description": "Parses search results from backend"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter events by attendee email and find matching event\nconst events = $input.all();\nconst cancellationData = $input.all()[0].json.cancellationData;\nconst requestId = $input.all()[0].json.requestId;\nconst searchEmail = cancellationData.email.toLowerCase();\n\n// Find event that matches the email and time\nlet matchingEvent = null;\n\nfor (const eventItem of events) {\n  const event = eventItem.json;\n  \n  // Check if event has attendees matching the email\n  if (event.attendees && Array.isArray(event.attendees)) {\n    const hasMatchingAttendee = event.attendees.some(attendee => \n      attendee.email && attendee.email.toLowerCase() === searchEmail\n    );\n    \n    if (hasMatchingAttendee) {\n      // Check if the event time matches (within 30 minutes)\n      const eventStart = new Date(event.start.dateTime || event.start.date);\n      const appointmentTime = new Date(`${cancellationData.date}T${cancellationData.time}:00`);\n      const timeDiff = Math.abs(eventStart.getTime() - appointmentTime.getTime());\n      \n      if (timeDiff < 30 * 60 * 1000) { // Within 30 minutes\n        matchingEvent = event;\n        break;\n      }\n    }\n  }\n}\n\nif (!matchingEvent) {\n  // Log that no event was found\n  console.log('No matching calendar event found:', JSON.stringify({\n    timestamp: new Date().toISOString(),\n    requestId: requestId,\n    type: 'calendar_event_not_found',\n    cancellationData: cancellationData,\n    eventsFound: events.length\n  }, null, 2));\n  \n  // Return error response\n  return {\n    json: {\n      success: false,\n      error: 'Event not found',\n      message: 'No matching calendar event found for the provided email, date, and time',\n      cancellationData: cancellationData,\n      requestId: requestId\n    }\n  };\n}\n\n// Log found event\nconsole.log('Matching calendar event found:', JSON.stringify({\n  timestamp: new Date().toISOString(),\n  requestId: requestId,\n  type: 'calendar_event_found',\n  eventId: matchingEvent.id,\n  eventSummary: matchingEvent.summary,\n  cancellationData: cancellationData\n}, null, 2));\n\n// Return event data for deletion\nreturn {\n  json: {\n    success: true,\n    eventId: matchingEvent.id,\n    calendarId: $input.all()[0].json.searchData.calendarId,\n    cancellationData: cancellationData,\n    requestId: requestId\n  }\n};"
+      },
+      "id": "filter-matching-event",
+      "name": "Filter Matching Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1780, 200],
+      "description": "Filters search results to find the event matching email and time"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.success }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-event-found",
+      "name": "Check Event Found",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [2000, 200],
+      "description": "Routes workflow based on whether event was found"
+    },
+    {
+      "parameters": {
+        "url": "=http://chatbot-backend:3000/api/google-calendar/delete/{{ $json.eventId }}?calendarId={{ $json.calendarId || 'primary' }}",
+        "authentication": "none",
+        "method": "DELETE",
+        "options": {}
+      },
+      "id": "google-calendar-delete",
+      "name": "Google Calendar - Delete Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 200],
+      "description": "Deletes calendar event via backend API (which handles JWT authentication)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse delete response\nconst response = $input.item.json;\nconst cancellationData = $input.all()[0].json.cancellationData;\nconst requestId = $input.all()[0].json.requestId;\nconst eventId = $input.all()[0].json.eventId;\n\nif (!response.success) {\n  throw new Error(response.error || 'Failed to delete calendar event');\n}\n\n// Log success\nconst logEntry = {\n  timestamp: new Date().toISOString(),\n  requestId: requestId,\n  type: 'calendar_event_deleted',\n  success: true,\n  deletedEventId: eventId,\n  cancellationData: {\n    email: cancellationData.email,\n    date: cancellationData.date,\n    time: cancellationData.time\n  }\n};\n\nconsole.log('Google Calendar Event Deleted Successfully:', JSON.stringify(logEntry, null, 2));\n\n// Return formatted response\nreturn {\n  json: {\n    success: true,\n    message: 'Appointment cancellation processed successfully',\n    deletedEventId: eventId,\n    cancellationData: cancellationData,\n    requestId: requestId\n  }\n};"
+      },
+      "id": "log-deletion-success",
+      "name": "Log Deletion Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 200],
+      "description": "Logs successful event deletion with event ID and details"
     },
     {
       "parameters": {
@@ -90,10 +159,7 @@
       "name": "Respond - Success",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        1340,
-        200
-      ],
+      "position": [2660, 200],
       "description": "Sends success response back to backend API"
     },
     {
@@ -104,79 +170,68 @@
           "responseCode": 400
         }
       },
-      "id": "respond-error",
+      "id": "respond-error-validation",
       "name": "Respond - Validation Error",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,
-      "position": [
-        1120,
-        400
-      ],
+      "position": [1120, 400],
       "description": "Sends validation error response back to backend API"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 404
+        }
+      },
+      "id": "respond-error-not-found",
+      "name": "Respond - Event Not Found",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2000, 400],
+      "description": "Sends event not found response back to backend API"
     }
   ],
   "connections": {
     "Webhook - Cancel Appointment": {
-      "main": [
-        [
-          {
-            "node": "Validate Cancellation Data",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Validate Cancellation Data", "type": "main", "index": 0 }]]
     },
     "Validate Cancellation Data": {
-      "main": [
-        [
-          {
-            "node": "Log Cancellation Request",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Log Cancellation Request", "type": "main", "index": 0 }]]
     },
     "Log Cancellation Request": {
-      "main": [
-        [
-          {
-            "node": "Check Validation",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Check Validation", "type": "main", "index": 0 }]]
     },
     "Check Validation": {
       "main": [
-        [
-          {
-            "node": "Google Calendar Stub",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Respond - Validation Error",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Prepare Event Search", "type": "main", "index": 0 }],
+        [{ "node": "Respond - Validation Error", "type": "main", "index": 0 }]
       ]
     },
-    "Google Calendar Stub": {
+    "Prepare Event Search": {
+      "main": [[{ "node": "Google Calendar - Search Events", "type": "main", "index": 0 }]]
+    },
+    "Google Calendar - Search Events": {
+      "main": [[{ "node": "Parse Search Response", "type": "main", "index": 0 }]]
+    },
+    "Parse Search Response": {
+      "main": [[{ "node": "Filter Matching Event", "type": "main", "index": 0 }]]
+    },
+    "Filter Matching Event": {
+      "main": [[{ "node": "Check Event Found", "type": "main", "index": 0 }]]
+    },
+    "Check Event Found": {
       "main": [
-        [
-          {
-            "node": "Respond - Success",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Google Calendar - Delete Event", "type": "main", "index": 0 }],
+        [{ "node": "Respond - Event Not Found", "type": "main", "index": 0 }]
       ]
+    },
+    "Google Calendar - Delete Event": {
+      "main": [[{ "node": "Log Deletion Success", "type": "main", "index": 0 }]]
+    },
+    "Log Deletion Success": {
+      "main": [[{ "node": "Respond - Success", "type": "main", "index": 0 }]]
     }
   },
   "pinData": {},
@@ -184,14 +239,7 @@
     "executionOrder": "v1"
   },
   "staticData": null,
-  "tags": [
-    {
-      "createdAt": "2026-01-14T20:00:00.000Z",
-      "updatedAt": "2026-01-14T20:00:00.000Z",
-      "id": "appointment-cancellation",
-      "name": "appointment-cancellation"
-    }
-  ],
+  "tags": [],
   "triggerCount": 0,
   "updatedAt": "2026-01-14T20:00:00.000Z",
   "versionId": "1"

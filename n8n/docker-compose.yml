@@ -7,16 +7,24 @@ services:
     environment:
       - N8N_HOST=0.0.0.0
       - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678/
+      - N8N_EDITOR_BASE_URL=http://localhost:5678
       - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER:-admin}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD:-admin}
       - N8N_BOOK_WEBHOOK_PATH=${N8N_BOOK_WEBHOOK_PATH:-/webhook/book}
       - N8N_CANCEL_WEBHOOK_PATH=${N8N_CANCEL_WEBHOOK_PATH:-/webhook/cancel}
       - N8N_USER_FOLDER=/home/node/.n8n
       - NODE_ENV=${NODE_ENV:-production}
+      - GOOGLE_CALENDAR_ID=${GOOGLE_CALENDAR_ID:-primary}
+      - GOOGLE_SERVICE_ACCOUNT_KEY_PATH=${GOOGLE_SERVICE_ACCOUNT_KEY_PATH:-/home/node/.n8n/service-account.json}
+      - GOOGLE_SERVICE_ACCOUNT_JSON=${GOOGLE_SERVICE_ACCOUNT_JSON}
+      - BACKEND_URL=${BACKEND_URL:-http://chatbot-backend:3000}
     volumes:
       - ./workflows:/home/node/.n8n/workflows
       - ./logs:/home/node/.n8n/logs
       - n8n_data:/home/node/.n8n
+      - ./service-account.json:/home/node/.n8n/service-account.json:ro
     restart: unless-stopped
     networks:
       - chatbot-network
