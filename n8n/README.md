@@ -254,15 +254,99 @@ Then reference n8n service by name:
 - `N8N_BOOK_WEBHOOK_URL=http://n8n:5678/webhook/book`
 - `N8N_CANCEL_WEBHOOK_URL=http://n8n:5678/webhook/cancel`
 
-## Future Enhancements
+## Google Calendar Integration
 
-### Google Calendar Integration
-The workflows include placeholder nodes for Google Calendar integration. To implement:
+### Overview
+Google Calendar integration is fully implemented in both workflows. Appointments are automatically created in Google Calendar when booked and deleted when cancelled.
 
-1. Set up Google Calendar API credentials in n8n
-2. Replace "Google Calendar Stub" nodes with actual Google Calendar nodes
-3. Configure calendar ID and event creation/deletion logic
-4. Test with real calendar events
+### Setup Instructions
+
+#### 1. Google Cloud Setup
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the **Google Calendar API**:
+   - Navigate to "APIs & Services" → "Library"
+   - Search for "Google Calendar API"
+   - Click "Enable"
+
+#### 2. Create Service Account
+1. Navigate to "APIs & Services" → "Credentials"
+2. Click "Create Credentials" → "Service Account"
+3. Fill in service account details:
+   - Name: `n8n-calendar-service` (or your preferred name)
+   - Description: "Service account for n8n calendar automation"
+4. Click "Create and Continue"
+5. Skip role assignment (not needed for calendar access)
+6. Click "Done"
+
+#### 3. Generate Service Account Key
+1. Click on the created service account
+2. Go to "Keys" tab
+3. Click "Add Key" → "Create new key"
+4. Select "JSON" format
+5. Click "Create" - JSON file will download automatically
+6. Save this file as `service-account.json` in the `n8n/` directory
+
+#### 4. Share Calendar with Service Account
+1. Open Google Calendar
+2. Go to calendar settings (gear icon → Settings)
+3. Click on "Settings for my calendars" → Select your calendar
+4. Scroll to "Share with specific people"
+5. Click "Add people"
+6. Enter the service account email (found in `service-account.json` as `client_email`)
+7. Set permission to "Make changes to events"
+8. Click "Send"
+
+**Note**: For shared calendars, use the calendar ID format: `your-calendar-id@group.calendar.google.com`
+
+#### 5. Configure n8n Credentials
+1. Access n8n UI at `http://localhost:5678`
+2. Go to **Credentials** (left sidebar)
+3. Click **"Add Credential"**
+4. Search for **"Google Calendar OAuth2 API"**
+5. Select it and configure:
+   - **Authentication**: Choose "Service Account"
+   - **Service Account Email**: Paste from `service-account.json` (`client_email` field)
+   - **Private Key**: Paste from `service-account.json` (`private_key` field)
+   - **Project ID**: Paste from `service-account.json` (`project_id` field)
+   - **Name**: `Google Calendar Service Account`
+6. Click **"Save"**
+
+**Alternative**: You can also upload the entire JSON file if the credential form supports it.
+
+#### 6. Configure Environment Variables
+Update your `.env` file or `docker-compose.yml`:
+
+```bash
+# Google Calendar Configuration
+GOOGLE_CALENDAR_ID=primary  # or your-calendar-id@group.calendar.google.com
+GOOGLE_SERVICE_ACCOUNT_KEY_PATH=/home/node/.n8n/service-account.json
+```
+
+#### 7. Verify Setup
+1. Ensure `service-account.json` is in the `n8n/` directory
+2. Restart n8n container: `docker-compose restart`
+3. Test booking an appointment via the backend API
+4. Check Google Calendar for the created event
+5. Test cancellation and verify event is deleted
+
+### Troubleshooting
+
+**Event not created:**
+- Verify service account has "Make changes to events" permission on the calendar
+- Check n8n execution logs for error messages
+- Verify credential is correctly configured in n8n UI
+- Ensure calendar ID is correct (use `primary` for primary calendar)
+
+**Event not found during cancellation:**
+- Verify the event was created with the correct email as attendee
+- Check that date/time format matches exactly
+- Review search time range in workflow logs
+
+**Authentication errors:**
+- Verify service account JSON file is valid
+- Check that service account email matches the one shared with calendar
+- Ensure Google Calendar API is enabled in Google Cloud Console
 
 ### Additional Features
 - Database persistence for appointments
